@@ -1,0 +1,20 @@
+# Environment & Secrets
+.env
+*.env
+
+# Docker & Docs
+docker-compose.yml
+docs/skripsi_svm.pdf
+
+# Virtual Environment
+venv/
+.venv/
+env/
+ENV/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/

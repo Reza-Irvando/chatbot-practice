@@ -1,0 +1,23 @@
+# Orchestrator & LLM Framework
+langgraph>=0.2.0
+langchain-core>=0.3.0
+langchain-ollama>=0.2.0
+langchain-text-splitters>=0.3.0
+
+# Document Ingestion & PDF Parser
+pypdf>=4.0.0
+
+# Model Context Protocol (MCP)
+mcp<2.0.0
+
+# Database & Vector Store
+psycopg2-binary>=2.9.9
+pgvector>=0.3.0
+
+# Environment & Settings Management
+python-dotenv>=1.0.0
+pydantic-settings>=2.0.0
+requests>=2.31.0
+
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
