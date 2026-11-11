@@ -1,5 +1,6 @@
 """
-Entry point utama Chatbot Skripsi SVM RAG (MCP & PostgreSQL pgvector).
+Entry point utama Chatbot Asisten Hukum UU Perlindungan Data Pribadi (UU No. 27 Tahun 2022)
+berbasis FastMCP, Ollama, dan PostgreSQL pgvector.
 Dapat dijalankan langsung dengan:
     python main.py
 atau
@@ -20,4 +21,3 @@ from backend.main import bootstrap, run_chat
 if __name__ == "__main__":
     bootstrap()
     asyncio.run(run_chat())
-
