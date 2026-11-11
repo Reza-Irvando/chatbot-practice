@@ -42,7 +42,7 @@ export default function ChatInput({ onSendMessage, isLoading }) {
         value={input}
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="Tanyakan seputar naskah skripsi (SVM, citra UAV, kernel, akurasi)..."
+        placeholder="Tanyakan ketentuan UU PDP (misal: hak subjek, Pasal 15, kebocoran data, sanksi pidana)..."
         disabled={isLoading}
         className="w-full bg-slate-800/90 border border-slate-700 rounded-xl px-4 py-3 pr-12 text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/70 resize-none transition max-h-36 overflow-y-auto"
       />

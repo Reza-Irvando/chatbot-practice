@@ -1,20 +1,28 @@
 import { useState, useRef, useEffect } from 'react';
-import { Sparkles, Terminal } from 'lucide-react';
+import { Sparkles, Terminal, Scale } from 'lucide-react';
 import MessageItem from './components/MessageItem';
 import ChatInput from './components/ChatInput';
 import { sendChatMessageAsync, checkBackendHealth } from './services/api';
 
 const QUICK_PROMPTS = [
-  "Berapa parameter C dan kernel SVM yang digunakan?",
-  "Jelaskan spesifikasi sensor multispektral UAV!",
-  "Berapa tingkat akurasi klasifikasi yang dihasilkan?",
+  "Apa saja hak-hak subjek data pribadi menurut UU PDP?",
+  "Apa perbedaan data pribadi yang bersifat spesifik dan umum?",
+  "Berapa batas waktu pemberitahuan jika terjadi kegagalan pelindungan data pribadi?",
+  "Apa saja sanksi pidana dan denda bagi pelaku jual beli data pribadi?",
 ];
 
 export default function App() {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: 'Halo! Saya asisten naskah skripsi **SVM Citra Multispektral UAV**. Apa yang ingin Anda tanyakan seputar data naskah?',
+      content:
+        'Halo! Saya asisten hukum cerdas untuk **Undang-Undang No. 27 Tahun 2022 tentang Pelindungan Data Pribadi (UU PDP)**.\n\n' +
+        'Silakan tanyakan hal-hal terkait:\n' +
+        '- **Hak-hak Subjek Data** (Pasal 5 - 15)\n' +
+        '- **Kewajiban Pengendali & Prosesor Data** (Pasal 27 - 50)\n' +
+        '- **Penanganan Kebocoran Data** (Pasal 46)\n' +
+        '- **Sanksi Administratif & Denda Pidana** (Pasal 57, 65 - 73)\n\n' +
+        'Apa yang ingin Anda konsultasikan hari ini?',
       citations: [],
     },
   ]);
@@ -95,11 +103,11 @@ export default function App() {
       <header className="flex items-center justify-between pb-4 border-b border-slate-800">
         <div>
           <h1 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-            <Sparkles size={19} className="text-emerald-400" />
-            Skripsi SVM UAV Knowledge Assistant
+            <Scale size={20} className="text-emerald-400" />
+            UU Perlindungan Data Pribadi Assistant
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Model Context Protocol (FastMCP) • Ollama llama3.2 • pgvector
+            Model Context Protocol (FastMCP) • Ollama • pgvector • UU No. 27 Tahun 2022
           </p>
         </div>
 
@@ -130,7 +138,7 @@ export default function App() {
             <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center">
               <Terminal size={14} className="text-emerald-400 animate-pulse" />
             </div>
-            <span>Sedang menganalisis naskah skripsi via MCP & Ollama...</span>
+            <span>Sedang menganalisis ketentuan UU PDP No. 27/2022 via FastMCP...</span>
           </div>
         )}
         <div ref={chatBottomRef} />
