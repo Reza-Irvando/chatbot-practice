@@ -1,0 +1,32 @@
+# =====================================================================
+# Container Stack: PostgreSQL (pgvector) & Ollama
+# Kompatibel dengan Docker Compose (docker compose up -d)
+# dan Podman Compose (podman compose up -d / podman-compose up -d)
+# =====================================================================
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: uupdp_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: chatbot_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: uupdp_ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+
+volumes:
+  postgres_data:
+  ollama_models:

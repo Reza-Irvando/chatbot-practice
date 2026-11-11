@@ -2,9 +2,8 @@
 .env
 *.env
 
-# Docker & Docs
+# Docker
 docker-compose.yml
-docs/skripsi_svm.pdf
 
 # Virtual Environment
 venv/
@@ -18,3 +17,7 @@ __pycache__/
 *$py.class
 *.so
 .pytest_cache/
+
+# IDE / Editor
+.vscode/
+.idea/
