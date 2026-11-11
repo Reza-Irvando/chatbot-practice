@@ -15,8 +15,8 @@ from backend.agent.workflow import mcp_rag_chain
 from mcp_server.migrations.runner import run_migrations
 
 app = FastAPI(
-    title="Skripsi SVM Knowledge Assistant API",
-    description="Backend API berbasis FastAPI, MCP (Model Context Protocol), Ollama, dan pgvector",
+    title="UU Perlindungan Data Pribadi (UU PDP) Knowledge Assistant API",
+    description="Backend API berbasis FastAPI, MCP (Model Context Protocol), Ollama, dan pgvector untuk tanya jawab UU No. 27 Tahun 2022 tentang Pelindungan Data Pribadi",
     version="1.0.0",
 )
 
@@ -74,7 +74,7 @@ async def startup_event():
     """Menjalankan migrasi tabel database pgvector saat backend pertama kali aktif."""
     try:
         run_migrations()
-        print("INFO:     [DB] Migrasi tabel database skripsi_dokumen berhasil diverifikasi.")
+        print("INFO:     [DB] Migrasi tabel database uupdp_dokumen berhasil diverifikasi.")
     except Exception as e:
         print(f"WARNING:  [DB] Gagal menjalankan migrasi otomatis: {e}")
 
@@ -87,7 +87,7 @@ async def startup_event():
 async def health_check():
     return {
         "status": "ok",
-        "service": "Skripsi SVM Assistant Backend",
+        "service": "UU PDP Knowledge Assistant Backend",
         "mcp_protocol": "FastMCP Stdio",
     }
 

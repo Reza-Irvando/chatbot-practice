@@ -13,18 +13,31 @@ from mcp_server.migrations.runner import run_migrations
 
 def bootstrap():
     print("=" * 70)
-    print(" CHATBOT SKRIPSI SVM: MENGGUNAKAN PROTOKOL MCP (MODEL CONTEXT PROTOCOL)")
+    print(" CHATBOT UU PERLINDUNGAN DATA PRIBADI (UU NO. 27 TAHUN 2022)")
+    print(" Menggunakan Protokol MCP (Model Context Protocol), Ollama & pgvector")
     print("=" * 70)
-    run_migrations()
-    print("\nMCP Client siap terhubung ke FastMCP Server!")
+    try:
+        run_migrations()
+    except Exception as e:
+        print(f"[PERINGATAN] Migrasi database dilewati / error: {e}")
+    print("\nMCP Client siap terhubung ke UU PDP FastMCP Server!")
     print(
-        "Contoh pertanyaan: 'Berapa akurasi SVM yang diperoleh?' atau 'Jelaskan sensor UAV yang dipakai'\n"
+        "Contoh pertanyaan:\n"
+        " 1. 'Apa saja hak-hak subjek data pribadi menurut UU PDP?'\n"
+        " 2. 'Apa perbedaan data pribadi yang bersifat spesifik dan umum?'\n"
+        " 3. 'Berapa batas waktu notifikasi jika terjadi kegagalan pelindungan data?'\n"
+        " 4. 'Apa sanksi pidana dan denda bagi pelaku jual beli data pribadi secara ilegal?'\n"
     )
 
 
 async def run_chat():
     while True:
-        user_input = input("\nPertanyaan Anda: ").strip()
+        try:
+            user_input = input("\nPertanyaan Anda: ").strip()
+        except (KeyboardInterrupt, EOFError):
+            print("\nSelesai.")
+            break
+
         if user_input.lower() in ["exit", "keluar"]:
             print("Selesai.")
             break
@@ -32,15 +45,15 @@ async def run_chat():
             continue
 
         try:
-            print("\n[Menghubungi MCP Server & mengambil data skripsi...]")
+            print("\n[Menghubungi MCP Server & mengambil ketentuan UU PDP...]")
             result = await mcp_rag_chain(user_input)
 
             answer = result.get("answer", "")
             citations = result.get("citations", [])
 
-            print(f"\nAsisten Skripsi (via MCP):\n{answer}\n")
+            print(f"\nAsisten UU PDP (via MCP):\n{answer}\n")
             if citations:
-                print("Referensi Dokumen:")
+                print("Referensi Dokumen & Pasal:")
                 for cite in citations:
                     print(f" - [{cite}]")
                 print()

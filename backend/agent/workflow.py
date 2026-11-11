@@ -13,52 +13,94 @@ if str(ROOT_DIR) not in sys.path:
 from backend.agent.client import panggil_tool_mcp
 from config.settings import settings
 
-llm = ChatOllama(
-    model=settings.LLM_MODEL,
-    base_url=settings.OLLAMA_BASE_URL,
-    temperature=0.1,
-)
 
-PROMPT_TEMPLATE = """Kamu adalah Asisten Akademik Ahli untuk skripsi:
-"IMPLEMENTASI KLASIFIKASI TINGKAT KERAPATAN VEGETASI PADA CITRA MULTISPEKTRAL UAV MENGGUNAKAN ALGORITMA SUPPORT VECTOR MACHINE (SVM)".
+def get_llm():
+    """
+    Menginisialisasi LLM sesuai konfigurasi provider di .env (Gemini atau Ollama).
+    Dapat beralih secara dinamis tanpa perlu restart manual.
+    """
+    settings.reload()
+    provider = (settings.LLM_PROVIDER or "ollama").lower().strip()
 
-Gunakan informasi dari kutipan dokumen skripsi berikut untuk menjawab pertanyaan pengguna.
-Jika informasi tidak ada dalam kutipan yang diberikan, nyatakan secara jujur bahwa data tersebut tidak ditemukan dalam naskah.
+    # 1. Opsi Provider: Google Gemini API
+    if provider == "gemini":
+        if not settings.GEMINI_API_KEY:
+            print("[WARNING] LLM_PROVIDER disetel ke 'gemini', namun GEMINI_API_KEY di .env kosong.")
+            print("[INFO] Beralih otomatis menggunakan model lokal Ollama sebagai fallback...")
+        else:
+            try:
+                from langchain_google_genai import ChatGoogleGenerativeAI
+                return ChatGoogleGenerativeAI(
+                    model=settings.GEMINI_MODEL,
+                    google_api_key=settings.GEMINI_API_KEY,
+                    max_output_tokens=settings.MAX_TOKENS,
+                )
+            except Exception as e:
+                print(f"[ERROR] Gagal inisialisasi Gemini API: {e}. Menggunakan fallback Ollama...")
+
+    # 2. Opsi Provider: Ollama (Lokal Llama 3.2)
+    return ChatOllama(
+        model=settings.LLM_MODEL,
+        base_url=settings.OLLAMA_BASE_URL,
+        temperature=0.1,
+        num_predict=settings.MAX_TOKENS,
+        stop=["<|eot_id|>", "<|end_of_text|>", "\n\nPERTANYAAN PENGGUNA:", "\n\nUSER:"],
+    )
+
+
+SYSTEM_PROMPT = """Kamu adalah Konsultan Hukum Ahli untuk Undang-Undang Republik Indonesia Nomor 27 Tahun 2022 tentang Pelindungan Data Pribadi (UU PDP).
+
+TUGAS UTAMA:
+Gunakan kutipan resmi naskah UU PDP di bawah ini untuk menjawab pertanyaan pengguna secara ringkas, akurat, padat, dan berlandaskan hukum.
+
+PANDUAN MENJAWAB:
+1. Jawab langsung ke inti pertanyaan secara terstruktur dan hindari kalimat bertele-tele atau pengulangan kata.
+2. Cantumkan rujukan pasal dan ayat secara jelas dan eksplisit (misalnya: "Berdasarkan Pasal 15 ayat (1) UU PDP...", "Sebagaimana diatur dalam Pasal 4 ayat (2)...").
+3. Jika ada informasi dari Bagian Penjelasan Resmi, sertakan secara ringkas.
+4. Bedakan antara Pengendali Data Pribadi, Prosesor Data Pribadi, dan Subjek Data Pribadi.
+5. Jika informasi TIDAK diatur dalam UU No. 27 Tahun 2022 atau tidak ditemukan dalam konteks dokumen, nyatakan secara jujur bahwa hal tersebut tidak tercantum dalam naskah UU PDP. Jangan mengarang aturan fiktif.
 
 ---
-KONTEKS DARI MCP SERVER:
+KONTEKS RESMI DARI MCP SERVER (UU NO. 27 TAHUN 2022):
 {context}
----
+---"""
 
-PERTANYAAN PENGGUNA:
-{question}
-
-JAWABAN AKADEMIS:"""
-
-prompt = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
+prompt = ChatPromptTemplate.from_messages([
+    ("system", SYSTEM_PROMPT),
+    ("human", "{question}"),
+])
 
 
 def ekstrak_sitasi(context_text: str) -> list[str]:
-    """Mengekstrak judul dokumen / label halaman dari konteks untuk UI."""
-    return re.findall(r"\[(.*?)\]", context_text)
+    """Mengekstrak judul dokumen / label pasal dari konteks untuk ditampilkan pada UI."""
+    raw_citations = re.findall(r"\[(UU PDP No\. 27/2022 - .*?)\]", context_text)
+    if not raw_citations:
+        raw_citations = [
+            c for c in re.findall(r"\[(.*?)\]", context_text)
+            if not c.startswith("Dokumen:") and not c.startswith("Bagian:") and not c.startswith("Skor")
+        ]
+    return list(dict.fromkeys(raw_citations))
 
 
 async def mcp_rag_chain(question: str) -> dict:
-    """Pipeline RAG dengan perantara MCP Server resmi, mengembalikan answer dan citations."""
-    # 1. Panggil MCP Server
+    """Pipeline RAG dengan perantara FastMCP Server resmi, mengembalikan answer dan citations."""
+    # 1. Panggil MCP Server untuk mengambil pasal-pasal relevan
     context_text = await panggil_tool_mcp(
-        nama_tool="cari_teori_dan_metodologi_skripsi",
+        nama_tool="cari_pasal_dan_ketentuan_uupdp",
         argumen={"pertanyaan": question},
     )
 
-    # 2. Sintesis jawaban via LLM
-    chain = prompt | llm | StrOutputParser()
+    # 2. Ambil instans LLM aktif (Gemini atau Ollama)
+    active_llm = get_llm()
+
+    # 3. Sintesis jawaban hukum via LLM
+    chain = prompt | active_llm | StrOutputParser()
     answer = await chain.ainvoke(
         {"context": context_text, "question": question}
     )
 
-    # 3. Ekstrak metadata sitasi
-    citations = list(dict.fromkeys(ekstrak_sitasi(context_text)))
+    # 4. Ekstrak metadata sitasi untuk UI
+    citations = ekstrak_sitasi(context_text)
 
     return {
         "answer": answer,
@@ -67,4 +109,4 @@ async def mcp_rag_chain(question: str) -> dict:
     }
 
 
-__all__ = ["mcp_rag_chain", "ekstrak_sitasi"]
+__all__ = ["mcp_rag_chain", "ekstrak_sitasi", "get_llm"]
