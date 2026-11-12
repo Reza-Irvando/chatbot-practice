@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const apiClient = axios.create({
-  baseURL: 'http://localhost:8000/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -18,16 +18,21 @@ export const checkBackendHealth = async () => {
 };
 
 // Kirim pesan async dengan batas toleransi inisiasi yang aman
-export const sendChatMessageAsync = async (question) => {
-  // 1. Inisiasi task (beri waktu 30 detik untuk mengantisipasi inisiasi koneksi/subproses)
+export const sendChatMessageAsync = async (question, conversationId = '') => {
+  // 1. Inisiasi task (sertakan conversation_id jika ada untuk multi-turn Dify)
+  const payload = { question };
+  if (conversationId) {
+    payload.conversation_id = conversationId;
+  }
+
   const initRes = await apiClient.post(
     '/chat/async',
-    { question },
+    payload,
     { timeout: 30000 }
   );
   const { task_id } = initRes.data;
 
-  // 2. Polling berkala hingga LLM selesai menjawab
+  // 2. Polling berkala hingga workflow Dify selesai menjawab
   return new Promise((resolve, reject) => {
     const interval = setInterval(async () => {
       try {
@@ -40,11 +45,12 @@ export const sendChatMessageAsync = async (question) => {
           clearInterval(interval);
           resolve({
             answer: task.answer,
+            conversation_id: task.conversation_id,
             citations: task.citations || [],
           });
         } else if (task.status === 'failed') {
           clearInterval(interval);
-          reject(new Error(task.detail || 'Terjadi kesalahan pada alur RAG.'));
+          reject(new Error(task.detail || 'Terjadi kesalahan pada alur chat.'));
         }
         // Jika masih 'processing', interval terus berlanjut
       } catch (err) {
