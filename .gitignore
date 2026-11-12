@@ -1,23 +1,31 @@
 # Environment & Secrets
 .env
-*.env
+backend/.env
+frontend/.env
 
-# Docker
-docker-compose.yml
-
-# Virtual Environment
+# Virtual Environment Python
 venv/
 .venv/
 env/
 ENV/
 
-# Python Cache
+# Python
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-.pytest_cache/
+*.pyc
+*.pyo
+*.pyd
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
 
 # IDE / Editor
 .vscode/
 .idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary
+tmp/
