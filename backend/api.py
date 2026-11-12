@@ -1,44 +1,28 @@
 import os
-import sys
 import uuid
 from typing import Any, Dict, List, Optional
 from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-# Pastikan root direktori terdaftar di sys.path
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-if ROOT_DIR not in sys.path:
-    sys.path.insert(0, ROOT_DIR)
-
-from backend.agent.workflow import mcp_rag_chain
-from mcp_server.migrations.runner import run_migrations
+from dify_client import query_dify_workflow
+from config.settings import settings
 
 app = FastAPI(
-    title="UU Perlindungan Data Pribadi (UU PDP) Knowledge Assistant API",
-    description="Backend API berbasis FastAPI, MCP (Model Context Protocol), Ollama, dan pgvector untuk tanya jawab UU No. 27 Tahun 2022 tentang Pelindungan Data Pribadi",
-    version="1.0.0",
+    title="UU PDP Assistant API",
+    description="Backend API berbasis FastAPI terintegrasi dengan Dify Chatflow untuk tanya jawab UU No. 27 Tahun 2022 tentang Pelindungan Data Pribadi.",
+    version="2.0.0",
 )
-
-# ---------------------------------------------------------
-# Konfigurasi CORS
-# ---------------------------------------------------------
-origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ---------------------------------------------------------
-# In-Memory Task Store untuk Async Polling
-# ---------------------------------------------------------
+# In-Memory Task Store untuk pola Async Polling
 TASKS_STORE: Dict[str, Dict[str, Any]] = {}
 
 
@@ -47,10 +31,13 @@ TASKS_STORE: Dict[str, Dict[str, Any]] = {}
 # ---------------------------------------------------------
 class ChatRequest(BaseModel):
     question: str
+    conversation_id: Optional[str] = None
+    user: Optional[str] = None
 
 
 class ChatResponse(BaseModel):
     answer: str
+    conversation_id: Optional[str] = None
     citations: List[str] = []
 
 
@@ -62,25 +49,13 @@ class AsyncTaskResponse(BaseModel):
 class TaskStatusResponse(BaseModel):
     status: str
     answer: Optional[str] = None
+    conversation_id: Optional[str] = None
     citations: Optional[List[str]] = None
     detail: Optional[str] = None
 
 
 # ---------------------------------------------------------
-# Startup Event
-# ---------------------------------------------------------
-@app.on_event("startup")
-async def startup_event():
-    """Menjalankan migrasi tabel database pgvector saat backend pertama kali aktif."""
-    try:
-        run_migrations()
-        print("INFO:     [DB] Migrasi tabel database uupdp_dokumen berhasil diverifikasi.")
-    except Exception as e:
-        print(f"WARNING:  [DB] Gagal menjalankan migrasi otomatis: {e}")
-
-
-# ---------------------------------------------------------
-# Health Check Endpoints (Mendukung /api/health dan /health)
+# Health Check
 # ---------------------------------------------------------
 @app.get("/api/health", tags=["Health"])
 @app.get("/health", tags=["Health"])
@@ -88,74 +63,88 @@ async def health_check():
     return {
         "status": "ok",
         "service": "UU PDP Knowledge Assistant Backend",
-        "mcp_protocol": "FastMCP Stdio",
+        "engine": "Dify Chatflow API",
+        "dify_url": settings.DIFY_API_URL,
     }
 
 
 # ---------------------------------------------------------
-# 1. Direct Synchronous Chat Endpoint
+# 1. Direct (Blocking) Chat Endpoint
 # ---------------------------------------------------------
 @app.post("/api/chat", response_model=ChatResponse, tags=["Chat"])
 async def chat_direct(payload: ChatRequest):
-    """
-    Menerima pertanyaan dan memproses RAG secara langsung (blocking).
-    Gunakan timeout panjang di sisi client (misal: 90 detik).
-    """
+    """Meneruskan pertanyaan ke Dify Chatflow secara blocking (timeout panjang)."""
     if not payload.question.strip():
         raise HTTPException(status_code=400, detail="Pertanyaan tidak boleh kosong.")
 
     try:
-        result = await mcp_rag_chain(payload.question)
+        user_id = payload.user or f"user_{uuid.uuid4().hex[:8]}"
+        result = await query_dify_workflow(
+            query=payload.question,
+            user_id=user_id,
+            conversation_id=payload.conversation_id or "",
+        )
         return ChatResponse(
             answer=result.get("answer", "Tidak ada respon yang dihasilkan."),
+            conversation_id=result.get("conversation_id"),
             citations=result.get("citations", []),
         )
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail=f"Terjadi kesalahan pada alur RAG / MCP: {str(exc)}",
+            detail=f"Terjadi kesalahan pada alur Dify Chatflow: {str(exc)}",
         )
 
 
 # ---------------------------------------------------------
-# 2. Asynchronous Job Endpoints (Bebas Timeout)
+# 2. Async Polling Endpoints
 # ---------------------------------------------------------
-async def process_rag_job(task_id: str, question: str):
-    """Berjalan sepenuhnya di latar belakang."""
+async def _process_dify_job(
+    task_id: str,
+    question: str,
+    conversation_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+):
+    """Background task — meneruskan chat ke Dify Chatflow."""
     try:
-        result = await mcp_rag_chain(question)
+        uid = user_id or f"user_{uuid.uuid4().hex[:8]}"
+        result = await query_dify_workflow(
+            query=question,
+            user_id=uid,
+            conversation_id=conversation_id or "",
+        )
         TASKS_STORE[task_id] = {
             "status": "completed",
             "answer": result.get("answer", "Tidak ada respon yang dihasilkan."),
+            "conversation_id": result.get("conversation_id"),
             "citations": result.get("citations", []),
         }
     except Exception as exc:
-        TASKS_STORE[task_id] = {
-            "status": "failed",
-            "detail": str(exc),
-        }
+        TASKS_STORE[task_id] = {"status": "failed", "detail": str(exc)}
+
 
 @app.post("/api/chat/async", response_model=AsyncTaskResponse, tags=["Chat Async"])
 async def chat_async_start(payload: ChatRequest, background_tasks: BackgroundTasks):
+    """Inisiasi pekerjaan async — langsung kembalikan task_id untuk polling."""
     if not payload.question.strip():
         raise HTTPException(status_code=400, detail="Pertanyaan tidak boleh kosong.")
 
     task_id = str(uuid.uuid4())
     TASKS_STORE[task_id] = {"status": "processing"}
 
-    # Jadwalkan pekerjaan di background tanpa menahan respons return
-    background_tasks.add_task(process_rag_job, task_id, payload.question)
-
-    # Mengembalikan respons seketika
+    background_tasks.add_task(
+        _process_dify_job,
+        task_id,
+        payload.question,
+        payload.conversation_id,
+        payload.user,
+    )
     return AsyncTaskResponse(task_id=task_id, status="processing")
 
 
 @app.get("/api/chat/status/{task_id}", response_model=TaskStatusResponse, tags=["Chat Async"])
-async def get_chat_task_status(task_id: str):
-    """
-    Frontend melakukan polling ke endpoint ini tiap 1-2 detik
-    hingga status berubah menjadi 'completed' atau 'failed'.
-    """
+async def get_chat_status(task_id: str):
+    """Frontend polling endpoint — cek status task hingga 'completed' atau 'failed'."""
     task = TASKS_STORE.get(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="ID pekerjaan tidak ditemukan.")
@@ -163,6 +152,7 @@ async def get_chat_task_status(task_id: str):
     return TaskStatusResponse(
         status=task.get("status", "processing"),
         answer=task.get("answer"),
+        conversation_id=task.get("conversation_id"),
         citations=task.get("citations"),
         detail=task.get("detail"),
     )

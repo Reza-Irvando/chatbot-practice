@@ -1,65 +1,68 @@
+"""
+CLI Interaktif Chatbot Asisten Hukum UU PDP (UU No. 27 Tahun 2022).
+Jalankan dari folder backend/:
+    python main.py
+"""
 import asyncio
-import sys
-from pathlib import Path
 
-# Pastikan Root Direktori terdaftar di sys.path
-ROOT_DIR = Path(__file__).resolve().parent.parent
-if str(ROOT_DIR) not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR))
-
-from backend.agent.workflow import mcp_rag_chain
-from mcp_server.migrations.runner import run_migrations
+from dify_client import query_dify_workflow
+from config.settings import settings
 
 
 def bootstrap():
     print("=" * 70)
-    print(" CHATBOT UU PERLINDUNGAN DATA PRIBADI (UU NO. 27 TAHUN 2022)")
-    print(" Menggunakan Protokol MCP (Model Context Protocol), Ollama & pgvector")
+    print("  CHATBOT UU PERLINDUNGAN DATA PRIBADI (UU NO. 27 TAHUN 2022)")
+    print(f"  Engine: Dify Chatflow  |  URL: {settings.DIFY_API_URL}")
     print("=" * 70)
-    try:
-        run_migrations()
-    except Exception as e:
-        print(f"[PERINGATAN] Migrasi database dilewati / error: {e}")
-    print("\nMCP Client siap terhubung ke UU PDP FastMCP Server!")
     print(
         "Contoh pertanyaan:\n"
-        " 1. 'Apa saja hak-hak subjek data pribadi menurut UU PDP?'\n"
-        " 2. 'Apa perbedaan data pribadi yang bersifat spesifik dan umum?'\n"
-        " 3. 'Berapa batas waktu notifikasi jika terjadi kegagalan pelindungan data?'\n"
-        " 4. 'Apa sanksi pidana dan denda bagi pelaku jual beli data pribadi secara ilegal?'\n"
+        "  1. Apa saja hak-hak subjek data pribadi menurut UU PDP?\n"
+        "  2. Apa perbedaan data pribadi yang bersifat spesifik dan umum?\n"
+        "  3. Berapa batas waktu notifikasi jika terjadi kegagalan pelindungan data?\n"
+        "  4. Apa sanksi pidana dan denda bagi pelaku jual beli data pribadi secara ilegal?\n"
     )
+    print("Ketik '/reset' untuk memulai sesi baru, 'exit' untuk keluar.\n")
 
 
 async def run_chat():
+    conversation_id = ""
     while True:
         try:
-            user_input = input("\nPertanyaan Anda: ").strip()
+            user_input = input("Pertanyaan Anda: ").strip()
         except (KeyboardInterrupt, EOFError):
             print("\nSelesai.")
             break
 
-        if user_input.lower() in ["exit", "keluar"]:
+        if user_input.lower() in ("exit", "keluar", "/exit"):
             print("Selesai.")
             break
+
+        if user_input.lower() == "/reset":
+            conversation_id = ""
+            print("[Sesi percakapan direset.]\n")
+            continue
+
         if not user_input:
             continue
 
         try:
-            print("\n[Menghubungi MCP Server & mengambil ketentuan UU PDP...]")
-            result = await mcp_rag_chain(user_input)
-
-            answer = result.get("answer", "")
+            print("\n[Meneruskan ke Dify Chatflow...]")
+            result = await query_dify_workflow(
+                query=user_input,
+                user_id="cli_user",
+                conversation_id=conversation_id,
+            )
+            conversation_id = result.get("conversation_id", conversation_id)
+            print(f"\nJawaban:\n{result.get('answer', '')}\n")
             citations = result.get("citations", [])
-
-            print(f"\nAsisten UU PDP (via MCP):\n{answer}\n")
             if citations:
-                print("Referensi Dokumen & Pasal:")
+                print("Referensi:")
                 for cite in citations:
-                    print(f" - [{cite}]")
+                    print(f"  - {cite}")
                 print()
             print("-" * 70)
-        except Exception as e:
-            print(f"[ERROR]: {e}")
+        except Exception as exc:
+            print(f"\n[ERROR]: {exc}\n")
 
 
 if __name__ == "__main__":
