@@ -1,0 +1,34 @@
+services:
+  # ── Microservice 1: Backend FastAPI (Dify Chatflow Proxy) ──────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: chatbot_backend
+    restart: always
+    env_file:
+      - ./backend/.env
+    ports:
+      - "8000:8000"
+    networks:
+      - chatbot_net
+
+  # ── Microservice 2: Frontend React (Vite + Nginx) ──────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=/api
+    container_name: chatbot_frontend
+    restart: always
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    networks:
+      - chatbot_net
+
+networks:
+  chatbot_net:
+    driver: bridge
