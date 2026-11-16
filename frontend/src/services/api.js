@@ -7,13 +7,16 @@ const apiClient = axios.create({
   },
 });
 
-// Health check: 4 detik cukup
+// Health check: mengembalikan status koneksi dan orchestrator aktif
 export const checkBackendHealth = async () => {
   try {
     const res = await apiClient.get('/health', { timeout: 4000 });
-    return res.status === 200;
+    return {
+      online: res.status === 200,
+      provider: res.data?.orchestrator_provider || null,
+    };
   } catch {
-    return false;
+    return { online: false, provider: null };
   }
 };
 

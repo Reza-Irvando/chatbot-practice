@@ -29,15 +29,26 @@ export default function App() {
   const [conversationId, setConversationId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isBackendOnline, setIsBackendOnline] = useState(true);
+  const [activeProvider, setActiveProvider] = useState('');
   const chatBottomRef = useRef(null);
 
-  // Polling pengecekan health backend
+  const providerLabel =
+    activeProvider === 'langgraph'
+      ? 'LangGraph Agentic RAG'
+      : activeProvider === 'dify'
+        ? 'Dify Chatflow'
+        : 'Multi-Orchestrator';
+
+  // Polling pengecekan health backend & provider aktif
   useEffect(() => {
     let isMounted = true;
     const verifyHealth = async () => {
-      const isOnline = await checkBackendHealth();
+      const health = await checkBackendHealth();
       if (isMounted) {
-        setIsBackendOnline(Boolean(isOnline));
+        setIsBackendOnline(Boolean(health?.online));
+        if (health?.provider) {
+          setActiveProvider(health.provider);
+        }
       }
     };
 
@@ -79,9 +90,12 @@ export default function App() {
       // 2. Request ke backend (meneruskan conversation_id untuk multi-turn Dify)
       const data = await sendChatMessageAsync(trimmedQuestion, conversationId);
 
-      // Simpan conversation_id untuk turn berikutnya
+      // Simpan conversation_id & provider_used untuk turn berikutnya
       if (data?.conversation_id) {
         setConversationId(data.conversation_id);
+      }
+      if (data?.provider_used) {
+        setActiveProvider(data.provider_used);
       }
 
       // Proteksi parsing payload respon backend
@@ -125,7 +139,7 @@ export default function App() {
             UU Perlindungan Data Pribadi Assistant
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Dify Chatflow • UU No. 27 Tahun 2022
+            {providerLabel} • UU No. 27 Tahun 2022
           </p>
         </div>
 
@@ -154,7 +168,7 @@ export default function App() {
                 isBackendOnline ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
               }`}
             />
-            {isBackendOnline ? 'Backend & Dify Ready' : 'Backend Disconnected'}
+            {isBackendOnline ? `Backend & ${providerLabel} Ready` : 'Backend Disconnected'}
           </div>
         </div>
       </header>
@@ -171,7 +185,7 @@ export default function App() {
             </div>
             <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-4 py-2.5 rounded-2xl">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-              <span>Memproses alur Dify Chatflow & mengambil rujukan pasal...</span>
+              <span>Memproses alur {providerLabel} & mengambil rujukan pasal...</span>
             </div>
           </div>
         )}
@@ -203,7 +217,7 @@ export default function App() {
       <footer className="pt-2">
         <ChatInput onSend={handleSend} disabled={isLoading || !isBackendOnline} />
         <p className="text-[10px] text-center text-slate-400 mt-2">
-          Jawaban dihasilkan oleh Dify Chatflow berdasarkan naskah resmi UU No. 27 Tahun 2022 tentang Pelindungan Data Pribadi.
+          Jawaban dihasilkan oleh {providerLabel} berdasarkan naskah resmi UU No. 27 Tahun 2022 tentang Pelindungan Data Pribadi.
         </p>
       </footer>
     </div>
