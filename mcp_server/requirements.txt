@@ -1,0 +1,13 @@
+# MCP Server Framework (pin v1.x agar kompatibel dengan FastMCP & SSE)
+mcp>=1.0.0,<2.0.0
+
+# Google Gemini Embeddings
+google-genai>=1.0.0
+
+# Knowledge & Vector Store (PostgreSQL pgvector + PDF)
+pypdf>=4.0.0
+psycopg2-binary>=2.9.9
+pgvector>=0.3.0
+
+# Environment
+python-dotenv>=1.0.0
