@@ -1,18 +1,26 @@
 """
 CLI Interaktif Chatbot Asisten Hukum UU PDP (UU No. 27 Tahun 2022).
+Mendukung orkestrator dinamis (Dify & LangGraph) sesuai ORCHESTRATOR_PROVIDER.
 Jalankan dari folder backend/:
     python main.py
 """
 import asyncio
+import sys
+from pathlib import Path
 
-from dify_client import query_dify_workflow
+BACKEND_DIR = Path(__file__).resolve().parent
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
+
 from config.settings import settings
+from orchestrators.factory import get_orchestrator
 
 
 def bootstrap():
+    settings.reload()
     print("=" * 70)
     print("  CHATBOT UU PERLINDUNGAN DATA PRIBADI (UU NO. 27 TAHUN 2022)")
-    print(f"  Engine: Dify Chatflow  |  URL: {settings.DIFY_API_URL}")
+    print(f"  Active Orchestrator: {settings.ORCHESTRATOR_PROVIDER.upper()}")
     print("=" * 70)
     print(
         "Contoh pertanyaan:\n"
@@ -46,19 +54,20 @@ async def run_chat():
             continue
 
         try:
-            print("\n[Meneruskan ke Dify Chatflow...]")
-            result = await query_dify_workflow(
+            orchestrator = get_orchestrator()
+            print(f"\n[Memproses via {settings.ORCHESTRATOR_PROVIDER}...]")
+            result = await orchestrator.ainvoke(
                 query=user_input,
                 user_id="cli_user",
                 conversation_id=conversation_id,
             )
-            conversation_id = result.get("conversation_id", conversation_id)
-            print(f"\nJawaban:\n{result.get('answer', '')}\n")
-            citations = result.get("citations", [])
-            if citations:
+            conversation_id = result.conversation_id or conversation_id
+            print(f"\nJawaban [{result.provider_used}]:\n{result.answer}\n")
+            if result.citations:
                 print("Referensi:")
-                for cite in citations:
-                    print(f"  - {cite}")
+                for cite in result.citations:
+                    label = cite.get("label") or cite.get("document_name") or str(cite)
+                    print(f"  - {label}")
                 print()
             print("-" * 70)
         except Exception as exc:
