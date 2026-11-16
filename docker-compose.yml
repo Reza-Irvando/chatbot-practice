@@ -1,19 +1,67 @@
 services:
-  # ── Microservice 1: Backend FastAPI (Dify Chatflow Proxy) ──────────────
+  # ── Microservice 1: Vector Database (PostgreSQL 16 + pgvector) ─────────
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: chatbot_db
+    restart: always
+    environment:
+      POSTGRES_DB: chatbot_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgvector_data:/var/lib/postgresql/data
+    networks:
+      - chatbot_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d chatbot_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Microservice 2: MCP Knowledge Server (pgvector + Gemini Embedding) ─
+  mcp_server:
+    build:
+      context: ./mcp_server
+      dockerfile: Dockerfile
+    container_name: chatbot_mcp_server
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - ./mcp_server/.env
+    environment:
+      - DB_HOST=db
+    volumes:
+      - ./data:/app/data:ro
+    ports:
+      - "8001:8000"
+    networks:
+      - chatbot_net
+
+  # ── Microservice 3: Backend FastAPI (Dify & LangGraph + Gemini) ────────
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: chatbot_backend
     restart: always
+    depends_on:
+      - mcp_server
     env_file:
       - ./backend/.env
+    environment:
+      - MCP_SERVER_URL=http://mcp_server:8000/sse
+    volumes:
+      - ./backend/.env:/app/.env:ro
     ports:
       - "8000:8000"
     networks:
       - chatbot_net
 
-  # ── Microservice 2: Frontend React (Vite + Nginx) ──────────────────────
+  # ── Microservice 4: Frontend React (Vite + Nginx) ──────────────────────
   frontend:
     build:
       context: ./frontend
@@ -28,6 +76,9 @@ services:
       - backend
     networks:
       - chatbot_net
+
+volumes:
+  pgvector_data:
 
 networks:
   chatbot_net:

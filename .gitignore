@@ -1,6 +1,7 @@
 # Environment & Secrets
 .env
 backend/.env
+mcp_server/.env
 frontend/.env
 
 # Virtual Environment Python
