@@ -9,7 +9,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgvector_data:/var/lib/postgresql/data
     networks:
@@ -37,7 +37,7 @@ services:
     volumes:
       - ./data:/app/data:ro
     ports:
-      - "8001:8000"
+      - "127.0.0.1:8001:8000"
     networks:
       - chatbot_net
 
@@ -57,11 +57,11 @@ services:
     volumes:
       - ./backend/.env:/app/.env:ro
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     networks:
       - chatbot_net
 
-  # ── Microservice 4: Frontend React (Vite + Nginx) ──────────────────────
+  # ── Microservice 4: Frontend React (Vite + Nginx Reverse Proxy) ────────
   frontend:
     build:
       context: ./frontend
