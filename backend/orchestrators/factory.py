@@ -11,14 +11,15 @@ _PROVIDER_REGISTRY: dict[str, type[BaseOrchestrator]] = {
 }
 
 
-def get_orchestrator() -> BaseOrchestrator:
+def get_orchestrator(provider_override: str | None = None) -> BaseOrchestrator:
     """
-    Factory Strategy Pattern: membaca ORCHESTRATOR_PROVIDER dari environment
-    lalu mengembalikan instance provider yang sesuai ('dify' atau 'langgraph').
+    Factory Strategy Pattern: menggunakan provider_override bila dikirim dari request UI/API,
+    atau membaca ORCHESTRATOR_PROVIDER dari environment (.env) sebagai default.
     """
     settings.reload()
     provider = (
-        os.getenv("ORCHESTRATOR_PROVIDER")
+        (provider_override or "").strip().lower()
+        or os.getenv("ORCHESTRATOR_PROVIDER")
         or settings.ORCHESTRATOR_PROVIDER
         or "dify"
     ).strip().lower()

@@ -21,11 +21,14 @@ export const checkBackendHealth = async () => {
 };
 
 // Kirim pesan async dengan batas toleransi inisiasi yang aman
-export const sendChatMessageAsync = async (question, conversationId = '') => {
-  // 1. Inisiasi task (sertakan conversation_id jika ada untuk multi-turn Dify)
+export const sendChatMessageAsync = async (question, conversationId = '', provider = '') => {
+  // 1. Inisiasi task (sertakan conversation_id & provider pilihan UI jika ada)
   const payload = { question };
   if (conversationId) {
     payload.conversation_id = conversationId;
+  }
+  if (provider) {
+    payload.provider = provider;
   }
 
   const initRes = await apiClient.post(

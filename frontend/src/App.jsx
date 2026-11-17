@@ -47,7 +47,7 @@ export default function App() {
       if (isMounted) {
         setIsBackendOnline(Boolean(health?.online));
         if (health?.provider) {
-          setActiveProvider(health.provider);
+          setActiveProvider((prev) => prev || health.provider);
         }
       }
     };
@@ -64,6 +64,21 @@ export default function App() {
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
+
+  const handleSwitchProvider = (nextProvider) => {
+    if (isLoading || nextProvider === activeProvider) return;
+    setActiveProvider(nextProvider);
+    setConversationId('');
+    const label = nextProvider === 'langgraph' ? 'LangGraph Agentic RAG' : 'Dify Chatflow';
+    setMessages((prev) => [
+      ...(prev || []),
+      {
+        role: 'assistant',
+        content: `Orkestrator beralih ke **${label}** *(sesi percakapan baru dimulai)*.`,
+        citations: [],
+      },
+    ]);
+  };
 
   const handleResetChat = () => {
     setConversationId('');
@@ -87,8 +102,8 @@ export default function App() {
     setIsLoading(true);
 
     try {
-      // 2. Request ke backend (meneruskan conversation_id untuk multi-turn Dify)
-      const data = await sendChatMessageAsync(trimmedQuestion, conversationId);
+      // 2. Request ke backend (meneruskan conversation_id & provider pilihan UI)
+      const data = await sendChatMessageAsync(trimmedQuestion, conversationId, activeProvider);
 
       // Simpan conversation_id & provider_used untuk turn berikutnya
       if (data?.conversation_id) {
@@ -143,8 +158,36 @@ export default function App() {
           </p>
         </div>
 
-        {/* Action Buttons & Status Badge */}
-        <div className="flex items-center gap-2">
+        {/* Action Buttons, Provider Switcher, & Status Badge */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div
+            role="group"
+            aria-label="Pilih Orkestrator"
+            className="flex items-center bg-slate-900 border border-slate-700 rounded-full p-0.5 text-xs"
+          >
+            {[
+              { id: 'dify', label: 'Dify' },
+              { id: 'langgraph', label: 'LangGraph' },
+            ].map((item) => {
+              const selected = activeProvider === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  disabled={isLoading}
+                  onClick={() => handleSwitchProvider(item.id)}
+                  className={`px-2.5 py-1 rounded-full transition-colors cursor-pointer disabled:cursor-not-allowed ${
+                    selected
+                      ? 'bg-emerald-600 text-white font-medium shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+
           {conversationId && (
             <button
               onClick={handleResetChat}

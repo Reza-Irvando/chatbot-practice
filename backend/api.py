@@ -44,6 +44,7 @@ class ChatRequest(BaseModel):
     question: str
     conversation_id: Optional[str] = None
     user: Optional[str] = None
+    provider: Optional[str] = None
 
 
 class ChatResponse(BaseModel):
@@ -112,9 +113,10 @@ async def _run_orchestrator_chat(
     question: str,
     user_id: Optional[str] = None,
     conversation_id: Optional[str] = None,
+    provider: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Menjalankan orkestrator aktif via Factory Strategy Pattern."""
-    orchestrator = get_orchestrator()
+    orchestrator = get_orchestrator(provider_override=provider)
     uid = user_id or f"user_{uuid.uuid4().hex[:8]}"
     result = await orchestrator.ainvoke(
         query=question,
@@ -159,6 +161,7 @@ async def chat_direct(payload: ChatRequest):
             question=payload.question,
             user_id=payload.user,
             conversation_id=payload.conversation_id,
+            provider=payload.provider,
         )
         return ChatResponse(**data)
     except Exception as exc:
@@ -176,6 +179,7 @@ async def _process_chat_job(
     question: str,
     conversation_id: Optional[str] = None,
     user_id: Optional[str] = None,
+    provider: Optional[str] = None,
 ):
     """Background task — mengeksekusi orkestrator aktif secara asinkron."""
     try:
@@ -183,6 +187,7 @@ async def _process_chat_job(
             question=question,
             user_id=user_id,
             conversation_id=conversation_id,
+            provider=provider,
         )
         TASKS_STORE[task_id] = {
             "status": "completed",
@@ -202,6 +207,12 @@ async def chat_async_start(payload: ChatRequest, background_tasks: BackgroundTas
     if not payload.question.strip():
         raise HTTPException(status_code=400, detail="Pertanyaan tidak boleh kosong.")
 
+    if payload.provider:
+        try:
+            get_orchestrator(provider_override=payload.provider)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
     task_id = str(uuid.uuid4())
     TASKS_STORE[task_id] = {"status": "processing"}
 
@@ -211,6 +222,7 @@ async def chat_async_start(payload: ChatRequest, background_tasks: BackgroundTas
         payload.question,
         payload.conversation_id,
         payload.user,
+        payload.provider,
     )
     return AsyncTaskResponse(task_id=task_id, status="processing")
 
