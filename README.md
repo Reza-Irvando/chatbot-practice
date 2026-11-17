@@ -234,6 +234,21 @@ podman compose logs -f backend
 podman compose down
 ```
 
+### Berbagi Akses via IP Jaringan Lokal (LAN / Wi-Fi)
+Secara default, port `db` (`5432`), `mcp_server` (`8001`), dan `backend` (`8000`) hanya dibuka di `127.0.0.1` (localhost) demi keamanan, dan hanya port `frontend` (`5173`) yang menjadi pintu masuk bersama lewat Nginx proxy (`/api/`).
+
+Untuk membagikan Web UI ke perangkat lain di jaringan Wi-Fi/kantor yang sama pada Windows + Podman, jalankan skrip [`share-lan.ps1`](share-lan.ps1) di **PowerShell (Run as Administrator)**:
+```powershell
+# Buka akses LAN (portproxy + Firewall Private/Domain)
+powershell -ExecutionPolicy Bypass -File .\share-lan.ps1 start
+
+# Cek status & alamat IP yang dibagikan
+powershell -ExecutionPolicy Bypass -File .\share-lan.ps1 status
+
+# Tutup kembali akses LAN setelah selesai
+powershell -ExecutionPolicy Bypass -File .\share-lan.ps1 stop
+```
+
 ---
 
 ## Menjalankan Secara Lokal (Manual)
